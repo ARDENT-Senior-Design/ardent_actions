@@ -8,8 +8,6 @@ project(ardent_actions)
 ## if COMPONENTS list like find_package(catkin REQUIRED COMPONENTS xyz)
 ## is used, also find other catkin packages
 find_package(catkin REQUIRED COMPONENTS
-  actionlib
-  ardent_controllers_msgs
   geometry_msgs
   message_filters
   roscpp
@@ -22,6 +20,3 @@ find_package(Boost REQUIRED COMPONENTS system)
 
 
 include_directories(include ${catkin_INCLUDE_DIRS} ${Boost_INCLUDE_DIRS})
-
-add_executable(leg_trajectory_client src/leg_trajectory_client.cc)
-target_link_libraries(leg_trajectory_client ${catkin_LIBRARIES})

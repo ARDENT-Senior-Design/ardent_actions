@@ -7,7 +7,7 @@
   <!-- One maintainer tag required, multiple allowed, one person per tag -->
   <!-- Example:  -->
   <!-- <maintainer email="jane.doe@example.com">Jane Doe</maintainer> -->
-  <maintainer email="nathan@todo.todo">nathan</maintainer>
+  <maintainer email="nathan.boyd.481@my.csun.edu">nathan</maintainer>
 
 
   <!-- One license tag required, multiple allowed, one license per tag -->
@@ -50,7 +50,6 @@
   <!--   <doc_depend>doxygen</doc_depend> -->
   <buildtool_depend>catkin</buildtool_depend>
   <build_depend>actionlib</build_depend>
-  <build_depend>ardent_controllers_msgs</build_depend>
   <build_depend>geometry_msgs</build_depend>
   <build_depend>message_filters</build_depend>
   <build_depend>roscpp</build_depend>
@@ -59,7 +58,6 @@
   <build_depend>tf_conversions</build_depend>
   <build_depend>trajectory_msgs</build_depend>
   <build_export_depend>actionlib</build_export_depend>
-  <build_export_depend>ardent_controllers_msgs</build_export_depend>
   <build_export_depend>geometry_msgs</build_export_depend>
   <build_export_depend>message_filters</build_export_depend>
   <build_export_depend>roscpp</build_export_depend>
@@ -68,7 +66,6 @@
   <build_export_depend>tf_conversions</build_export_depend>
   <build_export_depend>trajectory_msgs</build_export_depend>
   <exec_depend>actionlib</exec_depend>
-  <exec_depend>ardent_controllers_msgs</exec_depend>
   <exec_depend>geometry_msgs</exec_depend>
   <exec_depend>message_filters</exec_depend>
   <exec_depend>roscpp</exec_depend>
