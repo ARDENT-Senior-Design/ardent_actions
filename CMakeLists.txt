@@ -26,7 +26,7 @@ catkin_package()
 add_executable(leg_joint_trajectory_action src/leg_joint_trajectory_action_server.cc)
 target_link_libraries(leg_joint_trajectory_action ${Boost_LIBRARIES} ${catkin_LIBRARIES})
 
-add_dependencies(leg_joint_trajectory_action {catkin_EXPORTED_TARGETS})
+add_dependencies(leg_joint_trajectory_action ${catkin_EXPORTED_TARGETS})
 
-# install(TARGETS leg_joint_trajectory_action 
-#    DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION})
+ install(TARGETS leg_joint_trajectory_action 
+    DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION})
