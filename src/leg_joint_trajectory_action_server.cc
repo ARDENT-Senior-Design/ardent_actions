@@ -58,6 +58,15 @@ class JointTrajectoryExecuter
                 ROS_FATAL("Malformed joint specification.  (namespace: %s)", pn.getNamespace().c_str());
                 exit(1);
             }
+            /*
+            j_coxa_rf
+            j_femur_rf
+            j_tibia_rf
+            */
+            joint_names_[0] = "j_coxa_rf";
+            joint_names_[1] = "j_femur_rf";
+            joint_names_[2] = "j_tibia_rf";
+
             for (size_t i = 0; i < joint_names_.size(); ++i)
             {
                 XmlRpcValue &name_value = joint_names_[i];
@@ -68,9 +77,9 @@ class JointTrajectoryExecuter
                 }
                 else
                 {
-                    ROS_INFO("Added %s %s to the list of joints", pn.getNamespace().c_str(),(std::string)name_value);
+                    ROS_INFO("Added %s %s to the list of joints", pn.getNamespace().c_str(),static_cast<std::string>(name_value).c_str());
                 }
-                joint_names.push_back((std::string)name_value);
+                joint_names.push_back(static_cast<std::string>(name_value).c_str());
             }
             pn.param("constraints/goal_time", goal_time_constraint, 0.0);
             for(size_t i =0; i < joint_names.size();++i)
