@@ -44,7 +44,7 @@ class JointTrajectoryExecuter
         {
             using namespace XmlRpc;
             leg_id = leg_id_;
-            ros::NodeHandle pn("leg_"+leg_id+"_traj_controller/");
+            ros::NodeHandle pn("~");
             // resolves "~/gripper_action" to "/grasping_points_node/gripper_action"
             // read joints from the robot xml
             XmlRpc::XmlRpcValue joint_names_;
@@ -94,6 +94,22 @@ class JointTrajectoryExecuter
 
             pub_controller_command = node.advertise<trajectory_msgs::JointTrajectory>("command",1);
             sub_controller_state = node.subscribe("state", 1, &JointTrajectoryExecuter::controllerStateCallback, this);
+
+            watchdog_timer = node.createTimer(ros::Duration(1.0), &JointTrajectoryExecuter::watchdog, this);;\
+            ros::Time started_waiting_for_controller = ros::Time::now();
+            /*while(ros::ok() && !last_controller_state)
+            {
+                ros::spinOnce();
+                if(started_waiting_for_controller != ros::Time(0) && ros::Time::now() > started_waiting_for_controller+ros::Duration(30.0))
+                {
+                    ROS_WARN("I've been waiting for 30 freaking seconds, where is my controller?");
+                    started_waiting_for_controller = ros::Time(0);
+                }
+                ros::Duration(0.1).sleep();
+            }*/
+
+            // actually make the server visible to client after all these checks
+            action_server.start();
         }
 
         ~JointTrajectoryExecuter()
@@ -103,24 +119,186 @@ class JointTrajectoryExecuter
             //watchdog_timer.stop();
         }
 
+        static bool checkArrayEqual(const std::vector<std::string> &a, const std::vector<std::string> &b)
+        {
+            if(a.size() != b.size())
+            {
+                return false;
+            }
+            for(size_t i=0; i < a.size();++i)
+            {
+                if(count(b.begin(), b.end(),a[i]) != 1)
+                {
+                    return false;
+                }
+            }
+            for(size_t i=0; i < b.size();++i)
+            {
+                if(count(a.begin(),a.end(),b[i]) != 1)
+                {
+                    return false;
+                }
+            }
+            return true;
+        }
+
         void watchdog(const ros::TimerEvent &e)
         {
             ros::Time now = ros::Time::now();
+            //if the controller is not active, abort
+            if(has_active_goal)
+            {
+                bool should_abort = false;
+                if(!last_controller_state)
+                {
+                    should_abort = true;
+                    ROS_WARN("Abort because we haven't hear a controller message");
+                }
+                else if((now-last_controller_state->header.stamp) > ros::Duration(5.0))
+                {
+                    should_abort = true;
+                    ROS_WARN("Abort because we haven't heard from the controller in %.31f seconds", (now-last_controller_state->header.stamp).toSec());
+                }
+                if(should_abort)
+                {
+                    // stop the controlelr
+                    trajectory_msgs::JointTrajectory emptyTraj;
+                    emptyTraj.joint_names = joint_names;
+                    pub_controller_command.publish(emptyTraj);
 
+                    // Abort the current goal
+                    active_goal.setAborted();
+                    has_active_goal = false;
+                }
+            }
         }
         void goalCallback(GoalHandle gh_)
         {
+            // Verifies and ensures that the joints in the goal match the joints being commanded
+            if(!checkArrayEqual(joint_names, gh_.getGoal()->trajectory.joint_names))
+            {
+                ROS_ERROR("Goal joints and our joints don't match");
+                gh_.setRejected();
+                return;
+            }
 
+            // Cancels the active goal if there is already a goal and stops the trajectory
+            if(has_active_goal)
+            {
+                //stop the controller
+                trajectory_msgs::JointTrajectory emptyTraj;
+                emptyTraj.joint_names = joint_names;
+                pub_controller_command.publish(emptyTraj);
+                active_goal.setCanceled();
+                has_active_goal = false;
+                ROS_WARN("Canceled active trajectory");
+            }
+
+            gh_.setAccepted();
+            active_goal = gh_;
+            has_active_goal = true;
+
+            current_traj = active_goal.getGoal()->trajectory;
+            pub_controller_command.publish(current_traj);
         }
 
         void cancelCallback(GoalHandle gh_)
         {
-
+            if(active_goal == gh_)
+            {
+                //stop the controller
+               trajectory_msgs::JointTrajectory emptyTraj;
+                emptyTraj.joint_names = joint_names;
+                pub_controller_command.publish(emptyTraj);
+                active_goal.setCanceled();
+                has_active_goal = false;
+                ROS_WARN("Canceled active trajectory");
+            }
         }
 
         void controllerStateCallback(const ardent_controllers_msgs::JointTrajectoryControllerStateConstPtr &msg)
         {
+            last_controller_state = msg;
+            ros::Time now = ros::Time::now();
 
+            if(!has_active_goal)
+            {
+                return;
+            }
+            if(current_traj.points.empty())
+            {
+                return;
+            } 
+            if(now < current_traj.header.stamp+current_traj.points[0].time_from_start)
+            {
+                return;
+            }
+            if(!checkArrayEqual(joint_names,msg->joint_names))
+            {
+                ROS_ERROR("Joint names from the controller don't match our joint names");
+                return;
+            }
+
+            int last = current_traj.points.size() - 1;
+            ros::Time end_time = current_traj.header.stamp + current_traj.points[last].time_from_start;
+
+            // Verify the controller is within constraints of the trajectory
+            if(now < end_time)
+            {
+                // Check that the controller is inside the trajectory constraints for each joint
+                for(size_t i = 0; i<msg->joint_names.size();++i)
+                {   
+                    // check the error 
+                    double abs_error = fabs(msg->error.positions[i]);
+                    // check the constraint at current trajectory point
+                    double constraint = trajectory_constraints[msg->joint_names[i]];
+                    if(constraint > 0 && abs_error > constraint)
+                    {
+                        // Stop the controller
+                        trajectory_msgs::JointTrajectory emptyTraj;
+                        emptyTraj.joint_names = joint_names;
+                        pub_controller_command.publish(emptyTraj);
+                        active_goal.setCanceled();
+                        has_active_goal = false;
+                        ROS_WARN("Canceled active trajectory. Outside trajectory constraints");
+                        return;
+                    }
+                    else
+                    {
+                        // Check that we ended inside the goal constraints
+                        bool inside_goal_constraints = true;
+                        for(size_t i=0; i < msg->joint_names.size() && inside_goal_constraints;i++)
+                        {
+                            double abs_error = fabs(msg->error.positions[i]);
+                            double goal_constraint = goal_constraints[msg->joint_names[i]];
+                            if(goal_constraint >= 0 && abs_error > goal_constraint)
+                            {
+                                inside_goal_constraints = false;
+                            }
+                            
+                            // I'm going to say we stopp now
+                            if(fabs(msg->target.velocities[i]) < 1e-6)
+                            {
+                                if(fabs(msg->actual.velocities[i]) > stopped_velocity_tolerance)
+                                {
+                                    inside_goal_constraints = false;
+                                }
+                            }
+                            if(inside_goal_constraints)
+                            {
+                                active_goal.setSucceeded();
+                                has_active_goal = false;
+                            }
+                            else
+                            {
+                                ROS_WARN("Aborting because we aren't inside the goal constraints");
+                                active_goal.setAborted();
+                                has_active_goal = false;
+                            }
+                        }
+                    }
+                }
+            }
         }
 };
 
