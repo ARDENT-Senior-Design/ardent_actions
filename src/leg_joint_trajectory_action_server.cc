@@ -44,7 +44,7 @@ class JointTrajectoryExecuter
         {
             using namespace XmlRpc;
             leg_id = leg_id_;
-            ros::NodeHandle pn("~");
+            ros::NodeHandle pn("leg_rf_traj_controller");
             // resolves "~/gripper_action" to "/grasping_points_node/gripper_action"
             // read joints from the robot xml
             XmlRpc::XmlRpcValue joint_names_;
