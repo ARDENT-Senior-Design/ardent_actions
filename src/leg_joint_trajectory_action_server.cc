@@ -9,6 +9,7 @@
 
 class JointTrajectoryExecuter
 {
+    // This class just monitors and manages the controller JointTrajectoryActionController in ardent_controllers
     private:
         typedef actionlib::ActionServer<ardent_controllers_msgs::JointTrajectoryAction> JTAS;
         typedef JTAS::GoalHandle GoalHandle;
@@ -92,7 +93,9 @@ class JointTrajectoryExecuter
             }
             pn.param("constaints/stopped_velocity_tolerance",stopped_velocity_tolerance, 0.01);
 
+            // publish the joint trajectory command to the robot_controllers
             pub_controller_command = node.advertise<trajectory_msgs::JointTrajectory>("command",1);
+            // get the state information from the robot_controllers
             sub_controller_state = node.subscribe("state", 1, &JointTrajectoryExecuter::controllerStateCallback, this);
 
             watchdog_timer = node.createTimer(ros::Duration(1.0), &JointTrajectoryExecuter::watchdog, this);;\
