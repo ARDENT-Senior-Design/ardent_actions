@@ -37,7 +37,7 @@ class JointTrajectoryExecuter
 
         JointTrajectoryExecuter(std::string leg_id_, ros::NodeHandle &nh_) :  
             node(nh_), 
-            action_server(node,"joint_trajectory_action_server",
+            action_server(node,"leg_rf_traj_controller/joint_trajectory_action",
                             boost::bind(&JointTrajectoryExecuter::goalCallback, this, _1),
                             boost::bind(&JointTrajectoryExecuter::cancelCallback, this, _1),
                             false),
@@ -45,7 +45,9 @@ class JointTrajectoryExecuter
         {
             using namespace XmlRpc;
             leg_id = leg_id_;
+            // trajectory namespace node handle
             ros::NodeHandle pn("leg_rf_traj_controller");
+            //"leg_rf_traj_controller"
             // resolves "~/gripper_action" to "/grasping_points_node/gripper_action"
             // read joints from the robot xml
             XmlRpc::XmlRpcValue joint_names_;
@@ -64,11 +66,12 @@ class JointTrajectoryExecuter
             j_femur_rf
             j_tibia_rf
             */
+           //hardcoded from a rosparam get /leg_rf_traj_controller/joints
             joint_names_[0] = "j_coxa_rf";
             joint_names_[1] = "j_femur_rf";
             joint_names_[2] = "j_tibia_rf";
 
-            for (size_t i = 0; i < joint_names_.size(); ++i)
+            for (int i = 0; i < joint_names_.size(); ++i)
             {
                 XmlRpcValue &name_value = joint_names_[i];
                 if(name_value.getType() != XmlRpcValue::TypeString)
@@ -89,7 +92,8 @@ class JointTrajectoryExecuter
                 double goal, traj;
                 pn.param(ns+"/goal",goal,-1.0);
                 pn.param(ns+"/trajectory",traj,-1.0);
-                goal_constraints[joint_names[i]] = traj;
+                goal_constraints[joint_names[i]] = goal;
+                trajectory_constraints[joint_names[i]] = traj;
             }
             pn.param("constaints/stopped_velocity_tolerance",stopped_velocity_tolerance, 0.01);
 
@@ -98,9 +102,9 @@ class JointTrajectoryExecuter
             // get the state information from the robot_controllers
             sub_controller_state = node.subscribe("state", 1, &JointTrajectoryExecuter::controllerStateCallback, this);
 
-            watchdog_timer = node.createTimer(ros::Duration(1.0), &JointTrajectoryExecuter::watchdog, this);;\
+            watchdog_timer = node.createTimer(ros::Duration(1.0), &JointTrajectoryExecuter::watchdog, this);
             ros::Time started_waiting_for_controller = ros::Time::now();
-            /*while(ros::ok() && !last_controller_state)
+            while(ros::ok() && !last_controller_state)
             {
                 ros::spinOnce();
                 if(started_waiting_for_controller != ros::Time(0) && ros::Time::now() > started_waiting_for_controller+ros::Duration(30.0))
@@ -109,7 +113,7 @@ class JointTrajectoryExecuter
                     started_waiting_for_controller = ros::Time(0);
                 }
                 ros::Duration(0.1).sleep();
-            }*/
+            }
 
             // actually make the server visible to client after all these checks
             action_server.start();
@@ -155,7 +159,7 @@ class JointTrajectoryExecuter
                 if(!last_controller_state)
                 {
                     should_abort = true;
-                    ROS_WARN("Abort because we haven't hear a controller message");
+                    ROS_WARN("Abort because we haven't heard a controller message");
                 }
                 else if((now-last_controller_state->header.stamp) > ros::Duration(5.0))
                 {
@@ -291,6 +295,10 @@ class JointTrajectoryExecuter
                             {
                                 active_goal.setSucceeded();
                                 has_active_goal = false;
+                            }
+                            else if (now < end_time + ros::Duration(goal_time_constraint))
+                            {
+                                // Still have some time left to make it.
                             }
                             else
                             {
