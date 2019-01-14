@@ -67,9 +67,9 @@ class JointTrajectoryExecuter
             j_tibia_rf
             */
            //hardcoded from a rosparam get /leg_rf_traj_controller/joints
-            joint_names_[0] = "j_coxa_rf";
-            joint_names_[1] = "j_femur_rf";
-            joint_names_[2] = "j_tibia_rf";
+            // joint_names_[0] = "j_coxa_rf";
+            // joint_names_[1] = "j_femur_rf";
+            // joint_names_[2] = "j_tibia_rf";
 
             for (int i = 0; i < joint_names_.size(); ++i)
             {
@@ -81,7 +81,7 @@ class JointTrajectoryExecuter
                 }
                 else
                 {
-                    ROS_INFO("Added %s %s to the list of joints", pn.getNamespace().c_str(),static_cast<std::string>(name_value).c_str());
+                    ROS_INFO("Added %s /%s to the list of joints", pn.getNamespace().c_str(),static_cast<std::string>(name_value).c_str());
                 }
                 joint_names.push_back(static_cast<std::string>(name_value).c_str());
             }
